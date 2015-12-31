@@ -48,6 +48,7 @@ eventLoop (esMain, esLap, esTick) = loop
     loop = do
         hSetEcho stdin False
         hSetBuffering stdin NoBuffering
+        hSetBuffering stdout NoBuffering
         s <- getChar
         case s of
             's' -> fire esMain ()

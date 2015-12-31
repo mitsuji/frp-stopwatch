@@ -35,6 +35,7 @@ waitCommand :: TimerIO -> StateRef -> IO ()
 waitCommand timer stateRef = do
   hSetEcho stdin False
   hSetBuffering stdin NoBuffering
+  hSetBuffering stdout NoBuffering
   s <- getChar
   case s of
     's' -> do
