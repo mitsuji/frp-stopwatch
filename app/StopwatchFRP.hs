@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Main where
 
 import System.IO
@@ -18,6 +19,9 @@ main = do
   sources <- (,,) <$> newAddHandler <*> newAddHandler <*> newAddHandler
   network <- compile $ setupNetwork sources
   actuate network
+  hSetEcho stdin False
+  hSetBuffering stdin NoBuffering
+  hSetBuffering stdout NoBuffering
   eventLoop sources
 
 
@@ -45,10 +49,7 @@ fire = snd
 eventLoop :: (EventSource (), EventSource (), EventSource TimeCount) -> IO ()
 eventLoop (esMain, esLap, esTick) = loop
     where
-    loop = do
-        hSetEcho stdin False
-        hSetBuffering stdin NoBuffering
-        hSetBuffering stdout NoBuffering
+      loop = do
         s <- getChar
         case s of
             's' -> fire esMain ()
@@ -58,8 +59,8 @@ eventLoop (esMain, esLap, esTick) = loop
         when (s /= 'q') loop
 
 
-setupNetwork :: forall t. Frameworks t => (EventSource (), EventSource (), EventSource TimeCount) -> Moment t ()
-setupNetwork (esMain, esLap, esTick) =do
+setupNetwork :: (EventSource (), EventSource (), EventSource TimeCount) -> MomentIO ()
+setupNetwork (esMain, esLap, esTick) = do
 
     timer <- liftIO $ newTimer
   
@@ -67,34 +68,31 @@ setupNetwork (esMain, esLap, esTick) =do
     eLap  <- fromAddHandler $ addHandler esLap
     eTick <- fromAddHandler $ addHandler esTick
 
+    --
+    -- Event switch status -> running/not-running
+    -- 
+    eRun   <- accumE False ( not <$ eMain )
+    
+    --
+    -- Behavior current count
+    --
+    bCount <- stepper (TimeCount 0) eTick
 
     let
 
       --
-      -- Event switch status -> running/not-running
-      -- 
-      eRun :: Event t Bool
-      eRun = accumE False ( not <$ eMain )
-
-      --
       -- Event start/stop
       -- 
-      eStart :: Event t ()
-      eStop  :: Event t ()
+      eStart :: Event ()
+      eStop  :: Event ()
       eStart = () <$ filterE id  eRun 
       eStop  = () <$ filterE not eRun
-
-      --
-      -- Behavior current count
-      --
-      bCount :: Behavior t TimeCount
-      bCount  = stepper (TimeCount 0) eTick
-
+      
       --
       -- Event start/lap with current count
       --
-      eStart' :: Event t TimeCount
-      eLap'   :: Event t TimeCount
+      eStart' :: Event TimeCount
+      eLap'   :: Event TimeCount
       eStart' = bCount <@ eStart
       eLap'   = bCount <@ eLap
 
